@@ -1,0 +1,10 @@
+[Unit]
+Description=App
+
+[Service]
+User=cytech_usr
+WorkingDirectory={{ appDir }}
+ExecStart={{ venv_path }}/bin/python -m uvicorn main:app --port 8080 --host 0.0.0.0
+
+[Install]
+WantedBy=multi-user.target

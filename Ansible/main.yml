@@ -1,0 +1,12 @@
+---
+- name: BDD playbook
+  hosts: bdd, host-bdd
+
+  roles:
+    - bdd
+
+- name: App playbook
+  hosts: app, host-app
+
+  roles:
+    - app

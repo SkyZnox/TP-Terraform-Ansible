@@ -1,0 +1,78 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for bdd
+- name: Installing Postgresql
+  become: yes
+  ansible.builtin.apt:
+    name:
+      - postgresql-14
+      - acl
+      - python3-psycopg2
+
+- name: Create group
+  become: yes
+  ansible.builtin.group:
+    name: cytech_grp
+
+- name: Create user
+  become: yes
+  ansible.builtin.user:
+    name: cytech_usr
+    password: $6$EPQiQm9hNpW5cR$Lns.1buPh2gOHFn7Js03yAxIpU69PAfQF4PwPUrIBUws5MCm9jUuFi/pBbrI/E6pQXU4PqIFNDVQAnh.UNL320
+    group: cytech_grp
+    generate_ssh_key: yes
+    ssh_key_type: ed25519
+    ssh_key_file: .ssh/cytech_usr
+
+- name: Create database user
+  become: yes
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: cytech_usr
+    role_attr_flags: SUPERUSER
+
+- name: Instantiate database
+  become: yes
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: cytech
+    owner: cytech_usr
+
+
+- name: Restrict access to PostgreSQL for app
+  become: yes
+  lineinfile:
+    path: /etc/postgresql/14/main/pg_hba.conf
+    line: "host    cytech          cytech_usr      {{ api_ip }}            ident"
+    search_string: "host    cytech    cytech_usr"
+  notify: Reboot PostgreSQL
+
+- name: Replace listen addresses
+  become: yes
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/14/main/postgresql.conf
+    search_string: 'listen_addresses = '
+    line: "listen_addresses = '*'"
+  notify: Reboot PostgreSQL
+
+
+#- name: Restrict access to PostgreSQL for localhost
+#  lineinfile:
+#    path: /etc/postgresql/14/main/pg_hba.conf
+#    line: "local    cytech    cytech_usr   trust"
+#    search_string: "local    cytech    cytech_usr"
+#  notify: Reboot PostgreSQL
+
+- name: Copy SQL script
+  ansible.builtin.copy:
+    src: ../files/scriptSQL.sql
+    dest: /tmp/scriptSQL.sql
+    mode: 'a+x'
+
+- name: Run SQL script
+  become: yes
+  become_user: cytech_usr
+  community.postgresql.postgresql_script:
+    login_user: cytech_usr
+    db: cytech
+    path: /tmp/scriptSQL.sql
